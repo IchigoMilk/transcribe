@@ -132,7 +132,22 @@ The embedding model runs on CUDA when it is available; `--device cpu` forces it 
 
 Without `--rules` the correction pass is skipped. `--skip-identify` stops after correction.
 
-### 6. Apply real names
+### 6. Read one character's lines
+
+Once the speaker column is filled in, `extract.py` pulls a single character's lines out of the whole series. Reading how someone talks means seeing their lines together and in order, which is the one thing a per-episode transcript makes hard.
+
+```sh
+python extract.py --speaker 岩倉玲音                  # every transcript in output/
+python extract.py -s 岩倉玲音 -e 1 5 12               # only those episodes
+python extract.py -s 岩倉玲音 -s 英利政美 --plain     # several speakers, text only
+python extract.py --list                             # who is in these files, and how much
+```
+
+With no files given it reads every transcript in `--out` (default `output/`), skipping `*.mapping.tsv`. `--episodes` matches on the trailing number of the filename, so `-e 5` finds `input_05.tsv` without you having to know the padding. Output is TSV carrying `file`, `start`, `end` so any line can be traced back; `--plain` prints just the text for piping into other tools.
+
+Speaker matching is exact. A name that matches nothing is an error listing the speakers that do exist, because a filter that silently returns nothing looks like "this character never speaks" rather than "you typed it wrong".
+
+### 7. Apply real names
 
 Instead of a manual find-and-replace in an editor, prepare a small mapping TSV with `label` and `name` columns and apply it in bulk. `make_mapping.py` drafts this file for you: it lists every tentative label with its row count and an example line, and prints candidate names from the profiles directory for reference.
 
