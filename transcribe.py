@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import wave
 from pathlib import Path
 
 # Keep generated transcripts in the ignored output directory by default.
@@ -93,9 +94,15 @@ def extract_audio(path: Path, tmp_dir: Path) -> Path:
     return wav_path
 
 
+def wav_duration(wav_path: Path) -> float:
+    with wave.open(str(wav_path)) as w:
+        return w.getnframes() / w.getframerate()
+
+
 def transcribe(path: Path, model, out_dir: Path, tmp_dir: Path) -> Path:
     """Transcribe one input file and return the written TSV path."""
     wav_path = extract_audio(path, tmp_dir)
+    duration = wav_duration(wav_path)
     segments, info = model.transcribe(
         str(wav_path),
         language="ja",
@@ -103,13 +110,23 @@ def transcribe(path: Path, model, out_dir: Path, tmp_dir: Path) -> Path:
         vad_filter=True,
     )
     out_path = out_dir / (path.stem + ".tsv")
+    dropped = 0
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("start\tend\tspeaker\ttext\n")
         for seg in segments:
             text = seg.text.strip()
             if not text:
                 continue
-            f.write(f"{seg.start:.2f}\t{seg.end:.2f}\t\t{text}\n")
+            # Over closing themes Whisper keeps decoding past the end of the
+            # audio and invents dialogue for timestamps that do not exist.
+            # A segment starting at or after the end of the file has no audio
+            # behind it at all, so it is hallucination by construction.
+            if seg.start >= duration:
+                dropped += 1
+                continue
+            f.write(f"{seg.start:.2f}\t{min(seg.end, duration):.2f}\t\t{text}\n")
+    if dropped:
+        print(f"  Dropped {dropped} segment(s) starting past the end of the audio")
     wav_path.unlink()
     return out_path
 
