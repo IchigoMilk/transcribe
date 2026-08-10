@@ -1,4 +1,6 @@
 output/
+output-*/
+audio/
 logs/
 .venv/
 __pycache__/

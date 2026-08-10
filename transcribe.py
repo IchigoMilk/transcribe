@@ -14,6 +14,13 @@ Design:
     file before reaching Whisper. This accepts any container/codec ffmpeg
     understands (audio or video) instead of relying on faster-whisper's own
     demuxer, which is pickier about formats.
+- Voice activity detection is off by default. It looks like the obvious way
+    to skip music, but over a dense mix it does the opposite: whole minutes
+    collapse into a single segment carrying a fragment of what was said, so
+    the dialogue inside is lost rather than merely mistranscribed. Measured
+    on one bad stretch, VAD returned 29 characters where running without it
+    returned 220. Feed preprocess.py's vocal-only WAVs instead of relying on
+    VAD to separate speech from music.
 
 Dependencies: pip install faster-whisper, and ffmpeg on PATH.
 """
@@ -99,15 +106,18 @@ def wav_duration(wav_path: Path) -> float:
         return w.getnframes() / w.getframerate()
 
 
-def transcribe(path: Path, model, out_dir: Path, tmp_dir: Path) -> Path:
+def transcribe(path: Path, model, out_dir: Path, tmp_dir: Path,
+               vad: bool = False, condition: bool = False) -> Path:
     """Transcribe one input file and return the written TSV path."""
     wav_path = extract_audio(path, tmp_dir)
     duration = wav_duration(wav_path)
     segments, info = model.transcribe(
         str(wav_path),
         language="ja",
-        # Remove silent and music-only segments to reduce false lyric matches.
-        vad_filter=True,
+        vad_filter=vad,
+        # Carrying the previous window's text into the next one is what lets
+        # the decoder lock into a loop and repeat one line for minutes.
+        condition_on_previous_text=condition,
     )
     out_path = out_dir / (path.stem + ".tsv")
     dropped = 0
@@ -147,6 +157,12 @@ def main() -> int:
         help="compute type (int8 / int8_float16 / float16); int8 is the default for a GTX 1660 SUPER",
     )
     parser.add_argument("--device", default="auto", help="cuda / cpu / auto")
+    parser.add_argument("--vad", action="store_true",
+                        help="enable voice activity detection (off by default: it swallows "
+                             "dialogue under background music)")
+    parser.add_argument("--condition-on-previous", action="store_true",
+                        help="feed each window's text into the next (off by default: it makes "
+                             "the decoder repeat a line for minutes)")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output directory")
     args = parser.parse_args()
 
@@ -174,7 +190,8 @@ def main() -> int:
                 continue
             print(f"Transcribing: {path.name} ...")
             try:
-                out_path = transcribe(path, model, args.out, tmp_dir)
+                out_path = transcribe(path, model, args.out, tmp_dir,
+                                      vad=args.vad, condition=args.condition_on_previous)
             except FFmpegError as e:
                 print(f"  Skipping (ffmpeg error): {e}", file=sys.stderr)
                 continue

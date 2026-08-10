@@ -61,7 +61,26 @@ python transcribe.py input.mkv
 
 Enter speaker names directly in the generated TSV file's `speaker` column, or use the steps below to speed that up.
 
-### 2. Correct proper nouns (optional)
+### 2. Strip the music first (recommended)
+
+Whisper's failure mode under background music is not a wrong word here and there — it stops emitting utterances. A whole minute collapses into one segment holding a fragment of what was said, and the rest of the dialogue simply never appears. On one bad stretch the difference was 29 characters against 220.
+
+`preprocess.py` removes the cause: it decodes the audio track, runs source separation, keeps the vocal stem and throws the music away.
+
+```sh
+python preprocess.py input.mkv --out audio/
+python transcribe.py audio/input.wav
+```
+
+Separation runs on the full-band stereo audio and the downmix to mono 16kHz happens afterwards, because the separator was trained on music and loses accuracy if handed something already band-limited. Inputs whose WAV already exists are skipped, so an interrupted batch resumes; `--force` redoes them. `--no-separate` performs only the decode and downmix, and `--device cpu` runs separation without a GPU at roughly ten times the wall-clock cost.
+
+```sh
+python -m pip install demucs
+```
+
+Voice activity detection looks like the alternative and is not: it is what causes the collapse in the first place, which is why `transcribe.py` leaves it off. `--vad` re-enables it for material that is genuinely speech-only.
+
+### 3. Correct proper nouns (optional)
 
 Whisper knows nothing about a specific work, so it spells its proper nouns phonetically: a school name written with 聖 comes back as カタカナ, a character's surname is transcribed by sound rather than by its kanji. These errors are systematic — the same wrong spelling recurs in every episode — so a rule table fixes them deterministically.
 
@@ -83,7 +102,7 @@ The same pass also collapses runs of consecutive identical lines, a Whisper deco
 
 Corrections run before speaker identification. Clustering itself only reads the timestamps, but a human reviewing the tentative labels reads the text, so the text should already be right by then.
 
-### 3. Fix what a rule cannot (optional)
+### 4. Fix what a rule cannot (optional)
 
 A rule table only handles what recurs. What is left over is a line that is wrong exactly once, or a speaker label that voice clustering got wrong — both need a human reading the scene, and the result is data rather than a rule. `fix.py` applies those per-line overrides.
 
@@ -101,7 +120,7 @@ Overrides are keyed by `(file, start)` rather than by row number, because start 
 
 Because corrections regenerate from `output/raw/`, whose speaker column is empty, `correct.py` carries the existing speaker column back over by start time. Refining the rule table and re-running therefore does not throw away labeling work.
 
-### 4. Identify speakers (optional)
+### 5. Identify speakers (optional)
 
 Instead of labeling every line by hand, you can group lines by voice similarity to get tentative labels.
 
@@ -120,7 +139,7 @@ Whisper rounds segment boundaries outward and sometimes reports an end time a fr
 
 The embedding model runs on CUDA when it is available; `--device cpu` forces it off. On a whole series this is the difference between minutes and most of an hour.
 
-### 5. Run the whole chain
+### 6. Run the whole chain
 
 `run.sh` runs the transcribe, correct and identify steps in order and accepts several inputs at once. Passing a whole series in one command is much faster than looping over the script, because the Whisper model is loaded once instead of per file.
 
@@ -132,7 +151,7 @@ The embedding model runs on CUDA when it is available; `--device cpu` forces it 
 
 Without `--rules` the correction pass is skipped. `--skip-identify` stops after correction.
 
-### 6. Read one character's lines
+### 7. Read one character's lines
 
 Once the speaker column is filled in, `extract.py` pulls a single character's lines out of the whole series. Reading how someone talks means seeing their lines together and in order, which is the one thing a per-episode transcript makes hard.
 
@@ -147,7 +166,7 @@ With no files given it reads every transcript in `--out` (default `output/`), sk
 
 Speaker matching is exact. A name that matches nothing is an error listing the speakers that do exist, because a filter that silently returns nothing looks like "this character never speaks" rather than "you typed it wrong".
 
-### 7. Apply real names
+### 8. Apply real names
 
 Instead of a manual find-and-replace in an editor, prepare a small mapping TSV with `label` and `name` columns and apply it in bulk. `make_mapping.py` drafts this file for you: it lists every tentative label with its row count and an example line, and prints candidate names from the profiles directory for reference.
 
