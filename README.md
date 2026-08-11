@@ -38,6 +38,18 @@ aliases: [玲音, いわくら れいん, レイン]
 
 `profiles/` is gitignored: character data for a specific work is not meant to be pushed to this repo, so it only ever lives on disk locally.
 
+### One directory per work
+
+Give each work its own subdirectory under `audio/` and `output/`, matching the one it already has under `profiles/`. Filenames collide across works otherwise, and a rule table or a set of speaker labels only ever makes sense for one work:
+
+```
+profiles/<work>/     character YAML and corrections.tsv
+audio/<work>/        speech-only WAVs from preprocess.py
+output/<work>/       transcripts, output/<work>/raw/ for the pre-correction copies
+```
+
+Every script takes the directory as an argument (`--out`, `--rules`, `--profiles`), so nothing about this layout is baked in; it just keeps two works from overwriting each other.
+
 ### Additional setup for speaker identification (optional)
 
 `identify.py` clusters speakers by voice similarity using pyannote.audio.
