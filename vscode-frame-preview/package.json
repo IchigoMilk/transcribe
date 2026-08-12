@@ -1,0 +1,37 @@
+{
+  "name": "transcribe-frame-preview",
+  "displayName": "Transcribe Frame Preview",
+  "description": "Show the video frame for the transcript row under the cursor.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onLanguage:tsv", "onLanguage:plaintext"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "transcribeFrames.show", "title": "Transcribe: Show frame for current row" },
+      { "command": "transcribeFrames.toggleFollow", "title": "Transcribe: Toggle following the cursor" }
+    ],
+    "configuration": {
+      "title": "Transcribe Frame Preview",
+      "properties": {
+        "transcribeFrames.shotsRoot": {
+          "type": "string",
+          "default": "shots",
+          "description": "Directory holding <tsv stem>/<start>.jpg, relative to the workspace root unless absolute."
+        },
+        "transcribeFrames.follow": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update the panel as the cursor moves."
+        },
+        "transcribeFrames.hover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Also show the frame when hovering a row."
+        }
+      }
+    }
+  }
+}
