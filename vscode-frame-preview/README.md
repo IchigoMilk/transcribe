@@ -18,7 +18,11 @@ speaker labels can be checked against who is actually on screen.
    ```
 
 3. Open a labeled TSV. The frame follows the cursor in a panel beside the
-   editor, and hovering a row shows it inline.
+   editor.
+
+Hovering a row can show the frame inline as well, but that is off by
+default because the panel already tracks the cursor. Set
+`transcribeFrames.hover` to `true` if you want it.
 
 Commands: *Transcribe: Show frame for current row*, *Transcribe: Toggle
 following the cursor*. Settings: `shotsRoot`, `follow`, `hover`.

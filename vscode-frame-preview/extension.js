@@ -7,8 +7,9 @@
 // - The panel is opened beside the editor rather than over it, because the
 //   point is to read the line and the picture at the same time. It never
 //   takes focus, so arrowing down the file keeps working.
-// - A hover provider is offered as well, since reaching for the mouse is
-//   sometimes the faster way to check a single line.
+// - A hover provider exists too but is off by default: the panel already
+//   follows the cursor, so a popup on every mouse-over is in the way rather
+//   than useful. Turn on transcribeFrames.hover to get it back.
 
 const vscode = require("vscode");
 const path = require("path");
@@ -126,7 +127,7 @@ function activate(context) {
       [{ scheme: "file", pattern: "**/*.tsv" }],
       {
         provideHover(document, position) {
-          if (!config().get("hover", true)) return null;
+          if (!config().get("hover", false)) return null;
           const file = frameFor(document, position.line);
           if (!file) return null;
           const info = describe(document, position.line);
